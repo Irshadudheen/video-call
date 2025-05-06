@@ -28,17 +28,13 @@ const App = () => {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      {
-        urls: 'turn:your-turn-server.com:3478',
-        username: 'your-username',
-        credential: 'your-credential'
-      }
+      
     ]
   };
 
   useEffect(() => {
     // Connect to the signaling server with reconnection options
-    socketRef.current = io.connect('http://localhost:8000', {
+    socketRef.current = io.connect('https://video-call-92k0.onrender.com', {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5
