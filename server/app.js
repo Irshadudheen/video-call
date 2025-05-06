@@ -60,6 +60,17 @@ io.on('connection', (socket) => {
     
     // Send users list to all clients in the room
     io.to(roomId).emit('users_in_room', rooms[roomId].users);
+
+     // Send system message about new user
+     socket.to(roomId).emit('chat_message', {
+      from: 'system',
+      message: `User ${socket.id.substring(0, 5)} joined the room`
+    });
+    
+    // Send recent messages to the new user
+    if (rooms[roomId].messages && rooms[roomId].messages.length > 0) {
+      socket.emit('chat_history', rooms[roomId].messages);
+    }
     
     // Request offers from existing users
     usersInRoom.forEach(userId => {
@@ -86,7 +97,35 @@ io.on('connection', (socket) => {
   socket.on('ice_candidate', ({ to, candidate }) => {
     io.to(to).emit('ice_candidate', { from: socket.id, candidate });
   });
+// Handle chat messages
+socket.on('chat_message', ({ roomId, message }) => {
+  if (!roomId || !rooms[roomId]) return;
 
+  console.log(`Chat message from ${socket.id} in room ${roomId}: ${message}`);
+  
+  // Format message for storage
+  const formattedMessage = {
+    from: socket.id,
+    message: message,
+    time: new Date().toISOString()
+  };
+  
+  // Store message (limit to last 50 messages)
+  if (!rooms[roomId].messages) {
+    rooms[roomId].messages = [];
+  }
+  
+  rooms[roomId].messages.push(formattedMessage);
+  if (rooms[roomId].messages.length > 50) {
+    rooms[roomId].messages.shift();
+  }
+  
+  // Broadcast message to all users in the room except sender
+  socket.to(roomId).emit('chat_message', {
+    from: socket.id,
+    message: message
+  });
+});
   // Handle room leaving
   socket.on('leave_room', () => {
     console.log(`User ${socket.id} leaving room`);
@@ -109,7 +148,10 @@ function leaveRoom(socket) {
     
     // Remove user from room
     rooms[roomId].users = rooms[roomId].users.filter(id => id !== socket.id);
-    
+    io.to(roomId).emit('chat_message', {
+      from: 'system',
+      message: `User ${socket.id.substring(0, 5)} left the room`
+    });
     // Notify other users
     io.to(roomId).emit('user_left', socket.id);
     
@@ -161,31 +203,3 @@ app.get('/rooms', (req, res) => {
     totalRooms: Object.keys(rooms).length
   });
 });
-// const express = require('express');
-// const app = express();
-// const server = require('http').Server(app)
-// const io = require('socket.io')(server)
-// const {v4: uuidV4} = require('uuid')
-
-// app.set('view engine', 'ejs');
-// app.use(express.static('public'))
-// app.get('/', (req, res) => {
-//   res.redirect(`/${uuidV4()}`)
-// })
-// app.get('/:room', (req, res) => {
-//   res.render('room', { roomId: req.params.room })
-// }) 
-
-// io.on('connection',socket=>{
-//   socket.on('join-room',(roomId,userId)=>{
-// socket.join(roomId)
-// socket.broadcast.to(roomId).emit('user-connected',userId)
-// socket.on('disconnect',()=>{
-//   socket.broadcast.to(roomId).emit('user-disconnected',userId)
-// })
-//   })
-// })
-
-// server.listen(8000, () => {
-//   console.log('Server is running on port 8000')
-// })
